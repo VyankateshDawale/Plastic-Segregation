@@ -1,0 +1,33 @@
+# Virtual environment
+venv/
+
+# Dataset (too large for git)
+dataset/
+
+# Training runs & model weights (too large for git)
+runs/
+models/
+*.pt
+
+# Temp files
+.pip_tmp/
+.pip_cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Outputs
+outputs/

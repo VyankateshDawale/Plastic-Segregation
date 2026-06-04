@@ -1,0 +1,21 @@
+# Plastic Waste Sorting System - Dependencies
+# =============================================
+
+# Core ML Framework (CUDA 12.x for RTX 4050)
+# PyTorch is installed separately via pip with CUDA index URL
+# See setup instructions in README.md
+
+# YOLO v11 (Ultralytics)
+ultralytics>=8.3.0
+
+# Computer Vision
+opencv-python>=4.8.0
+
+# Utilities
+numpy>=1.24.0
+Pillow>=10.0.0
+matplotlib>=3.7.0
+pyyaml>=6.0
+
+# Optional: for webcam GUI enhancements
+colorama>=0.4.6
