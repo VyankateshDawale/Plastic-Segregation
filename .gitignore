@@ -6,8 +6,14 @@ dataset/
 
 # Training runs & model weights (too large for git)
 runs/
-models/
 *.pt
+*.pkl
+*.joblib
+
+# Keep models/ folder docs; ignore weight binaries inside
+models/**
+!models/README.md
+!models/.gitkeep
 
 # Temp files
 .pip_tmp/
@@ -31,3 +37,16 @@ Thumbs.db
 
 # Outputs
 outputs/
+
+# Local datasets / large archives (spectral)
+FTIR-PLASTIC-c4/
+ADVANCED_PLASTIC_FUSE/
+ADVANCED_PLASTIC_FUSE.rar
+*.rar
+*.mat
+
+# Keep exported paper tables; ignore huge npz if copied here
+results/**/*.npz
+!results/**/*.md
+!results/**/*.json
+!results/**/*.csv

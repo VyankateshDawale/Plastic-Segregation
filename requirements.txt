@@ -1,21 +1,28 @@
-# Plastic Waste Sorting System - Dependencies
+# Plastic Waste Sorting System — Dependencies
 # =============================================
+# Vision (YOLO) + Spectral (NIR/MIR) tracks
 
-# Core ML Framework (CUDA 12.x for RTX 4050)
-# PyTorch is installed separately via pip with CUDA index URL
-# See setup instructions in README.md
-
-# YOLO v11 (Ultralytics)
+# --- Vision / YOLO ---
 ultralytics>=8.3.0
-
-# Computer Vision
 opencv-python>=4.8.0
-
-# Utilities
 numpy>=1.24.0
 Pillow>=10.0.0
 matplotlib>=3.7.0
 pyyaml>=6.0
-
-# Optional: for webcam GUI enhancements
 colorama>=0.4.6
+
+# --- Spectral ML (Atharva_NIR) ---
+scipy>=1.10.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+xgboost>=2.0.0
+joblib>=1.3.0
+seaborn>=0.13.0
+
+# --- Deep spectral models (optional GPU) ---
+# Install PyTorch separately for your CUDA version, e.g.:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+# torch and torchvision are required for Atharva_NIR/train_deep.py and train_and_evaluate_pipeline.py
+
+# --- Report generation (optional) ---
+python-docx>=1.1.0
