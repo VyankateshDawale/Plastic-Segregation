@@ -140,3 +140,12 @@ These are **Phase 2–4** build targets so the repo can grow toward the full pap
 
 Vishwakarma University — Plastic Segregation multimodal project.  
 Remote: https://github.com/VyankateshDawale/Plastic-Segregation
+
+
+## Branch map
+
+| Branch | Use |
+|--------|-----|
+| main | Project README + baseline YOLO tree |
+| tharva | NIR/MIR spectral code, metrics, integration scaffolding |
+| yolo-imrpoved | Vision/YOLO improvement scaffolding |
