@@ -1,11 +1,11 @@
 <div align="center">
 
 # ♻️ AI + Sensor Based Plastic Waste Sorting System
-### *Featuring the Adaptive Confidence Engine (ACE)*
+### *Featuring the Adaptive Confidence Engine (ACE) & Expected Failure Probability (EFP)*
 
-[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/release/python-3140/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![YOLOv11](https://img.shields.io/badge/YOLO-v11-orange.svg)](https://github.com/ultralytics/ultralytics)
-[![XGBoost](https://img.shields.io/badge/XGBoost-1.7+-green.svg)](https://xgboost.readthedocs.io/)
+[![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-green.svg)](https://xgboost.readthedocs.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Paper](https://img.shields.io/badge/IEEE-Paper_Draft-red.svg)](paper/IEEE_Final_Paper.docx)
 
@@ -198,7 +198,9 @@ Carbon-black plastics absorb NIR radiation, making them invisible to standard op
 │   ├── generate_evaluation_plots.py  # Publication-quality plots
 │   └── validate.py                   # Model validation
 ├── models/
-│   └── ace_xgboost.json              # Trained ACE model
+│   ├── ace_xgboost.json              # Trained ACE XGBoost model (committed)
+│   ├── efp_predictor.pkl             # Trained EFP RandomForest model (committed)
+│   └── best.pt                       # YOLO detection weights — see "Getting Weights" below
 ├── outputs/
 │   ├── ace/                          # ACE evaluation results
 │   │   ├── ace_vs_fixed.csv
@@ -225,56 +227,94 @@ Carbon-black plastics absorb NIR radiation, making them invisible to standard op
 ## 🛠️ Installation & Setup
 
 ### Prerequisites
-- Python 3.14+
-- CUDA 12.6 (For GPU acceleration on RTX 4050/similar)
-- Smartphone with Iriun/DroidCam for USB webcam feed (optional, for live demo)
+- Python 3.12+
+- CUDA 12.x (recommended for GPU acceleration — tested on RTX 4050)
+- USB webcam or smartphone via USB (for live demo)
 
-### Virtual Environment Setup
+### 1. Clone the Repository
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/plastic-waste-sorting-ace.git
-cd plastic-waste-sorting-ace
+git clone https://github.com/VyankateshDawale/Plastic-Segregation.git
+cd Plastic-Segregation
+```
 
-# Create and activate virtual environment
+### 2. Create a Virtual Environment
+```bash
 python -m venv venv
 
 # Windows
 venv\Scripts\activate
-# Linux/macOS
+# Linux / macOS
 source venv/bin/activate
 ```
 
-### Install Dependencies
+### 3. Install Dependencies
 ```bash
 pip install --upgrade pip
+
+# GPU (CUDA 12.x — RTX 4050/similar)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+
+# CPU only
+# pip install torch torchvision
+
+# All other project dependencies
 pip install -r requirements.txt
 ```
-*Note: Ensure PyTorch is installed with the correct CUDA version for your system.*
+
+### 4. Getting the YOLO Weights
+The trained YOLO detection weights (`best.pt`) are **not stored in git** due to file size.
+To get them, choose one of the following:
+
+**Option A — Train from scratch (recommended for reproducibility):**
+```bash
+python src/train_detect_v2.py
+```
+Weights will be saved to `runs/detect/train/weights/best.pt`.
+
+**Option B — Download pre-trained weights (contact repo owner):**
+Contact the repository maintainer for a direct download link to the pre-trained `best.pt` and place it at `models/best.pt`.
+
+**Option C — Use any YOLOv11 base weights for testing:**
+```bash
+# The ultralytics package auto-downloads yolo11m.pt on first use
+python -c "from ultralytics import YOLO; YOLO('yolo11m.pt')" 
+```
+Then copy it: `cp yolo11m.pt models/best.pt`
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Run the Full Vision Pipeline
-To test the visual detection and classification cascade on a sample video or webcam:
+### 1. Run the Live Unified Pipeline (webcam)
+The main inference script with Dynamic ACE Gate + EFP Predictor + OOD Anomaly Detection:
 ```bash
-python src/detect_combined.py --source 0 --weights models/yolo11m.pt --cls_weights models/yolo11s-cls.pt
+python src/detect.py --source 0 --weights models/best.pt --conf 0.70
 ```
 
-### 2. Evaluate the ACE Model
-To run the comparison between the Fixed Threshold and ACE on the test dataset:
+### 2. Run the Full Combined Vision Pipeline (detect + classify)
 ```bash
-python src/ace/evaluate_ace.py --data data/evaluation_set.csv --output outputs/ace/
-```
-*This will generate the comparison CSVs and all publication-quality ROC/metrics plots in the `outputs/ace/` directory.*
-
-### 3. Generate Evaluation Plots
-```bash
-python src/generate_evaluation_plots.py
+python src/detect_combined.py --source 0 --weights models/best.pt
 ```
 
-### 4. Edge Benchmarking
-To verify latency metrics on your local hardware:
+### 3. Train the ACE Engine
+```bash
+python src/ace/train_ace.py
+```
+*This generates and trains on synthetic physics-based data. Output: `models/ace_xgboost.json`*
+
+### 4. Train the EFP Predictor
+```bash
+python scripts/train_efp_model.py
+```
+*Output: `models/efp_predictor.pkl` + `docs/efp_report.md`*
+
+### 5. Evaluate the ACE Model
+```bash
+python src/ace/evaluate_ace.py --output outputs/ace/
+```
+*Generates ROC curves, feature importance plots, and threshold distribution charts.*
+
+### 6. Edge Benchmarking
 ```bash
 python src/benchmark_edge.py --iterations 1000 --device cuda:0
 ```
