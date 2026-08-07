@@ -1,0 +1,4 @@
+model,median_latency_ms,mean_latency_ms,p95_latency_ms,fps,peak_vram_mb,onnx,tensorrt
+detection,24.96,25.88,31.06,40.07,234.5,SKIPPED (--skip-export),SKIPPED (--skip-export)
+classification,14.15,13.71,16.19,70.68,144.6,SKIPPED (--skip-export),SKIPPED (--skip-export)
+nonplastic_cls,12.47,12.13,13.98,80.18,138.2,SKIPPED (--skip-export),SKIPPED (--skip-export)

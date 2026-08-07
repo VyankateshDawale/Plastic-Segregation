@@ -1,0 +1,5 @@
+configuration,detector_mAP50,detector_mAP50-95,classifier_top1,composite_overall,nir_accuracy,mir_accuracy,notes
+Vision-only,0.5318,0.318,0.9573,0.5091,MISSING_HARDWARE,MISSING_HARDWARE,Runnable. NIR/MIR cells require joint RGB+spectral dataset + trained SVM/RF.
+NIR-only,MISSING_HARDWARE,MISSING_HARDWARE,MISSING_HARDWARE,MISSING_HARDWARE,MISSING_HARDWARE,MISSING_HARDWARE,REQUIRES NIR sensor + SVM; hardware not connected in this environment.
+MIR-only,MISSING_HARDWARE,MISSING_HARDWARE,MISSING_HARDWARE,MISSING_HARDWARE,MISSING_HARDWARE,MISSING_HARDWARE,REQUIRES MIR/FTIR sensor + RF; hardware not connected in this environment.
+Proposed (Vision + NIR->MIR gate),0.5318,0.318,0.9573,0.5091,MISSING_HARDWARE,MISSING_HARDWARE,Vision components measured; spectral escalation requires hardware (see NIR/MIR rows).

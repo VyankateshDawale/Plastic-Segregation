@@ -1,33 +1,65 @@
-# Virtual environment
-venv/
-
-# Dataset (too large for git)
-dataset/
-
-# Training runs & model weights (too large for git)
-runs/
-models/
-*.pt
-
-# Temp files
-.pip_tmp/
-.pip_cache/
+# ═══════════════════════════════════════════════════
+# Plastic Waste Sorting System — .gitignore
+# ═══════════════════════════════════════════════════
 
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
 *.egg-info/
 dist/
 build/
 
+# Virtual environment
+venv/
+.venv/
+env/
+
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
-Thumbs.db
 .DS_Store
+Thumbs.db
+desktop.ini
 
-# Outputs
-outputs/
+# ═══════════════════════════════════════════════════
+# Large files — NOT tracked in git
+# ═══════════════════════════════════════════════════
+
+# YOLO pretrained weights (download separately)
+*.pt
+!models/*.json
+
+# Training datasets (too large for git)
+dataset/
+dataset_cls/
+dataset_nonplastic/
+standardized_256/
+standardized_384/
+
+# Training runs and checkpoints
+runs/
+
+# Old/archived repos
+final github repo/
+original/
+
+# Scratch/temp
+scratch/
+.claude/
+
+# Large output images
+outputs/detection_*.jpg
+
+# SQLite databases
+data/*.db
+
+# Gemini/Antigravity
+.gemini/
+.agents/
