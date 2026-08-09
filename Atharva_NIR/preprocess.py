@@ -27,7 +27,12 @@ def preprocess_data():
     print("Starting data preprocessing...")
     
     # 1. Load dataset
-    csv_path = 'FTIR-PLASTIC-c4/FTIR_PLASTIC_c4.csv'
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(base_dir)
+    csv_path = os.path.join(project_root, 'FTIR-PLASTIC-c4', 'FTIR_PLASTIC_c4.csv')
+    if not os.path.exists(csv_path):
+        # Fallback to local
+        csv_path = 'FTIR-PLASTIC-c4/FTIR_PLASTIC_c4.csv'
     df = pd.read_csv(csv_path)
     
     # 2. Extract columns
@@ -85,16 +90,21 @@ def preprocess_data():
     y_test_enc = label_encoder.transform(y_test)
     
     # 7. Save pipeline components and datasets
-    os.makedirs('models', exist_ok=True)
-    os.makedirs('results', exist_ok=True)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(base_dir)
+    models_dir = os.path.join(project_root, 'models')
+    results_dir = os.path.join(project_root, 'results')
+    
+    os.makedirs(models_dir, exist_ok=True)
+    os.makedirs(results_dir, exist_ok=True)
     
     # Save transformers
-    joblib.dump(scaler, 'models/scaler.pkl')
-    joblib.dump(label_encoder, 'models/label_encoder.pkl')
-    print("Saved scaler.pkl and label_encoder.pkl to models/")
+    joblib.dump(scaler, os.path.join(models_dir, 'scaler.pkl'))
+    joblib.dump(label_encoder, os.path.join(models_dir, 'label_encoder.pkl'))
+    print(f"Saved scaler.pkl and label_encoder.pkl to {models_dir}")
     
     # Save the split datasets as npz for easy loading
-    np.savez('results/dataset_split.npz', 
+    np.savez(os.path.join(results_dir, 'dataset_split.npz'), 
              X_train=X_train_scaled, y_train=y_train_enc,
              X_val=X_val_scaled, y_val=y_val_enc,
              X_test=X_test_scaled, y_test=y_test_enc,
@@ -102,7 +112,7 @@ def preprocess_data():
     
     # Save label mapping for inference reference
     label_mapping = {int(i): str(c) for i, c in enumerate(label_encoder.classes_)}
-    with open('results/label_mapping.json', 'w') as f:
+    with open(os.path.join(results_dir, 'label_mapping.json'), 'w') as f:
         json.dump(label_mapping, f, indent=4)
         
     print("Preprocessing pipeline finished successfully!")

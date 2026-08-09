@@ -10,7 +10,9 @@ import os
 
 def train_classical_models():
     print("Loading preprocessed dataset...")
-    data = np.load('results/dataset_split.npz', allow_pickle=True)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(base_dir)
+    data = np.load(os.path.join(project_root, 'results', 'dataset_split.npz'), allow_pickle=True)
     X_train = data['X_train']
     y_train = data['y_train']
     X_val = data['X_val']
@@ -53,9 +55,10 @@ def train_classical_models():
         model.fit(X_train, y_train)
         
         # Save model
-        os.makedirs('models', exist_ok=True)
-        joblib.dump(model, f'models/{name.lower()}_model.pkl')
-        print(f"Saved {name} to models/{name.lower()}_model.pkl")
+        models_dir = os.path.join(project_root, 'models')
+        os.makedirs(models_dir, exist_ok=True)
+        joblib.dump(model, os.path.join(models_dir, f'{name.lower()}_model.pkl'))
+        print(f"Saved {name} to {models_dir}/{name.lower()}_model.pkl")
         
         # Predict
         y_val_pred = model.predict(X_val)
@@ -92,7 +95,8 @@ def train_classical_models():
         }
         
     # Save results to json
-    with open('results/classical_results.json', 'w') as f:
+    results_dir = os.path.join(project_root, 'results')
+    with open(os.path.join(results_dir, 'classical_results.json'), 'w') as f:
         json.dump(results, f, indent=4)
         
     print("\nClassical models training and evaluation completed!")

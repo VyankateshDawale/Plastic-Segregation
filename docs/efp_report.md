@@ -1,27 +1,46 @@
-# Expected Failure Probability (EFP) AI - Training Report
+# Expected Failure Probability (EFP) Model — Training Report
 
-## Architecture Overview
-The system introduces an EFP predictor that ingests multimodal visual features prior to full spectral processing. 
-If the predicted probability of an NIR failure exceeds **60%**, the system bypasses the NIR spectrometer and routes the object directly to the high-fidelity MIR sensor.
+## Data Provenance
+**SYNTHETIC DATA ONLY.** No real labeled NIR-fail/succeed events exist yet.
+Metrics in this report must NOT be reported as empirically validated results
+until real carbon-black sample measurements are available.
+
+## Label Design (Non-tautological)
+The NIR-failure label is derived from a noisy weighted combination of visual
+inputs:
+
+```
+p_fail = 0.50 * rgb_darkness
+       + 0.20 * (1 - gloss_index)
+       + 0.15 * texture_roughness
+       + 0.15 * (1 - nir_baseline_intensity)   # corroborating, not defining
+       + noise(mu=0, sigma=0.10)
+nir_failure = 1 if p_fail > 0.65 else 0
+```
+
+`nir_baseline_intensity` appears as an input feature AND contributes partially
+to the label, but the dominant terms are the VISUAL features `rgb_darkness`
+and `gloss_index`.  This avoids the AUC=1.00 tautology of the previous version
+where the label was simply `nir_baseline_intensity < 0.08`.
 
 ## Model Inputs
-- RGB Image Darkness (Proxy for carbon-black presence)
-- Preliminary NIR Baseline Intensity (Fast point-scan proxy)
-- Environmental Lighting (Lux)
-- Gloss Index
-- Texture Roughness
-- Object Size (cm)
+| Feature | Description |
+|---------|-------------|
+| `rgb_darkness` | 1 - mean(gray channel) / 255, proxy for carbon-black presence |
+| `nir_baseline_intensity` | Fast pre-scan mean reflectance |
+| `lighting_lux` | Ambient illuminance (300–1000 lux) |
+| `gloss_index` | Fraction of specular highlight pixels |
+| `texture_roughness` | Normalised Laplacian variance |
+| `object_size_cm` | Estimated object size in cm |
 
-## Performance Metrics (Test Set = 2,000 items)
-- **ROC-AUC Score**: 1.0000
-- **Optimal Threshold Applied**: 0.60
-- **Total Objects Bypassed from NIR**: 275 (13.8%)
+## Performance Metrics (Synthetic Test Set — 2,000 items)
+- **Data source**: SYNTHETIC (non-tautological)
+- **ROC-AUC Score**: 0.9779
+- **Decision Threshold Applied**: 0.60
+- **NIR Bypassed**: 240 items (12.0%)
+- **Correctly skipped NIR (TP)**: 208
+- **Incorrectly skipped NIR (FP)**: 32
 
-## Hardware Optimization Analysis
-By applying this predictive gate:
-1. **Time Saved**: The system successfully avoided running the computationally heavy NIR scan on 275 items that were destined to fail.
-2. **Sensor Preservation**: The NIR halogen bulb and shutter mechanism experienced 13.8% fewer actuation cycles, significantly extending hardware lifespan.
-3. **Trade-off Analysis**: Only 0 items were incorrectly sent straight to MIR, which is an acceptable false-positive rate given the speed advantage gained.
-
-## Conclusion
-The Expected Failure Probability logic successfully replaces the reactive "Confidence-Gated" mechanism, shifting the architecture to a proactive, highly efficient pipeline.
+## Status in PAPER_ALIGNMENT.md
+This row is marked **Partial — synthetic labels only, not yet validated on
+real NIR-fail / NIR-succeed measurements.**

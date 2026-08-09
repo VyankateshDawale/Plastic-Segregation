@@ -292,11 +292,27 @@ class UnifiedSegregationPipeline:
             )
             
         # 2. Material Complexity Routing
+        # Deterministic proxies derived from the visual feature tensor:
+        #   surface_roughness  ~ normalised std of 1st quarter of feature vector
+        #   reflectance_var    ~ normalised std of 2nd quarter
+        #   shape_entropy      ~ normalised mean of 3rd quarter
+        #   texture_entropy    ~ normalised std of 4th quarter
+        # These are NOT ground-truth measurements; they are order-of-magnitude
+        # proxies from the CNN embedding until the computer-vision module is
+        # integrated.  Results should be treated as illustrative routing.
+        vf = np.asarray(visual_features).flatten()
+        n  = len(vf)
+        q  = max(n // 4, 1)
+        _safe_std = lambda arr: float(np.std(arr)) if len(arr) > 1 else 0.0
+        surface_roughness = min(1.0, _safe_std(vf[:q]))
+        reflectance_var   = min(1.0, _safe_std(vf[q:2*q]))
+        shape_entropy     = min(1.0, float(np.mean(np.abs(vf[2*q:3*q]))))
+        texture_entropy   = min(1.0, _safe_std(vf[3*q:]))
         complexity = self.complexity_estimator.calculate_complexity(
-            surface_roughness=np.random.uniform(0, 1),
-            reflectance_var=np.random.uniform(0, 1),
-            shape_entropy=np.random.uniform(0, 1),
-            texture_entropy=np.random.uniform(0, 1)
+            surface_roughness=surface_roughness,
+            reflectance_var=reflectance_var,
+            shape_entropy=shape_entropy,
+            texture_entropy=texture_entropy
         )
         
         if complexity == "EASY":
@@ -309,9 +325,16 @@ class UnifiedSegregationPipeline:
         if rgb_crop is not None:
             darkness, gloss, roughness = self.efp_predictor.extract_rgb_features(rgb_crop)
         else:
-            darkness = np.random.uniform(0, 1)
-            gloss = np.random.uniform(0, 1)
-            roughness = np.random.uniform(0, 1)
+            # Deterministic fallback: derive from the visual embedding.
+            # darkness  ~ 1 - mean(abs(vf))  (darker = lower energy embedding)
+            # gloss     ~ interquartile range of vf (smooth surfaces have low IQR)
+            # roughness ~ std of local differences between adjacent features
+            vf_abs = np.abs(vf)
+            darkness  = float(np.clip(1.0 - np.mean(vf_abs), 0.0, 1.0))
+            q25, q75  = float(np.percentile(vf_abs, 25)), float(np.percentile(vf_abs, 75))
+            gloss     = float(np.clip(1.0 - (q75 - q25), 0.0, 1.0))
+            roughness = float(np.clip(np.mean(np.abs(np.diff(vf))), 0.0, 1.0))
+            # NOTE: These are CNN-embedding proxies, not camera measurements.
             
         # Fast NIR baseline is simulated as the mean of the raw_nir spectrum if available
         nir_baseline = np.mean(raw_nir) if raw_nir is not None else 0.5
@@ -418,14 +441,20 @@ if __name__ == "__main__":
         
         # Process first 5 real MIR test samples
         for i in range(5):
-            simulated_visual_tensor = np.random.rand(1, 512)
+            # [DEMO STUB] No real camera frame available — create a fixed
+            # synthetic embedding vector for demo routing purposes.
+            # Replace with actual CNN feature extraction in production.
+            simulated_visual_tensor = np.zeros((1, 512), dtype=np.float32)
+            simulated_visual_tensor[0, ::4] = 0.4  # deterministic non-random pattern
             raw_mir = X_test[i]
             
-            # Simulate a raw NIR spectrum (232 features)
-            # If it is a black plastic simulation, we make its intensity very low
-            # LDPE (Sample 1) -> normal, Black HDPE -> low intensity, etc.
+            # [DEMO STUB] No real NIR scanner attached — simulate reflectance
+            # profile based on known sample characteristics:
+            #   Sample index 1 == black-HDPE with very low reflectance.
             is_black = (i == 1)
-            raw_nir = np.random.uniform(0.1, 0.5, 232) if not is_black else np.random.uniform(0.01, 0.05, 232)
+            nir_mean = 0.04 if is_black else 0.30
+            rng = np.random.default_rng(seed=i)  # deterministic per sample
+            raw_nir = rng.normal(loc=nir_mean, scale=0.01, size=232).clip(0.01, 1.0)
             
             passport = pipeline.process_item(
                 visual_features=simulated_visual_tensor,

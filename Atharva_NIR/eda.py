@@ -9,7 +9,11 @@ def perform_eda():
     print("Starting Exploratory Data Analysis (EDA)...")
     
     # 1. Load dataset
-    csv_path = 'FTIR-PLASTIC-c4/FTIR_PLASTIC_c4.csv'
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(base_dir)
+    csv_path = os.path.join(project_root, 'FTIR-PLASTIC-c4', 'FTIR_PLASTIC_c4.csv')
+    if not os.path.exists(csv_path):
+        csv_path = 'FTIR-PLASTIC-c4/FTIR_PLASTIC_c4.csv'
     df = pd.read_csv(csv_path)
     print(f"Loaded dataset from {csv_path} with shape: {df.shape}")
     
@@ -44,10 +48,11 @@ def perform_eda():
         "wavenumber_range": [float(wavenumbers.min()), float(wavenumbers.max())]
     }
     
-    os.makedirs('results', exist_ok=True)
-    with open('results/eda_stats.json', 'w') as f:
+    results_dir = os.path.join(project_root, 'results')
+    os.makedirs(results_dir, exist_ok=True)
+    with open(os.path.join(results_dir, 'eda_stats.json'), 'w') as f:
         json.dump(stats, f, indent=4)
-    print("Saved statistics to results/eda_stats.json")
+    print(f"Saved statistics to {results_dir}/eda_stats.json")
     
     # Set aesthetics for plotting
     sns.set_theme(style="whitegrid")
@@ -68,8 +73,9 @@ def perform_eda():
     plt.xlabel("Polymer Type")
     plt.ylabel("Number of Samples")
     plt.tight_layout()
-    os.makedirs('plots', exist_ok=True)
-    plt.savefig('plots/class_distribution.png', dpi=300)
+    plots_dir = os.path.join(project_root, 'plots')
+    os.makedirs(plots_dir, exist_ok=True)
+    plt.savefig(os.path.join(plots_dir, 'class_distribution.png'), dpi=300)
     plt.close()
     print("Saved class distribution plot to plots/class_distribution.png")
     
@@ -97,7 +103,7 @@ def perform_eda():
     plt.xlim(wavenumbers.max(), wavenumbers.min())  # Standard FTIR convention: high to low wavenumbers
     plt.legend(title="Polymer Type", loc="upper right")
     plt.tight_layout()
-    plt.savefig('plots/mean_spectra.png', dpi=300)
+    plt.savefig(os.path.join(plots_dir, 'mean_spectra.png'), dpi=300)
     plt.close()
     print("Saved mean spectra plot to plots/mean_spectra.png")
     
@@ -114,7 +120,7 @@ def perform_eda():
                 cmap="coolwarm", annot=True, fmt=".2f", cbar_kws={'label': 'Correlation Coefficient'})
     plt.title("Correlation Matrix of Representative Spectral Bands (Wavenumbers in cm⁻¹)")
     plt.tight_layout()
-    plt.savefig('plots/spectral_correlation.png', dpi=300)
+    plt.savefig(os.path.join(plots_dir, 'spectral_correlation.png'), dpi=300)
     plt.close()
     print("Saved spectral correlation heatmap to plots/spectral_correlation.png")
     print("EDA completed successfully!")
