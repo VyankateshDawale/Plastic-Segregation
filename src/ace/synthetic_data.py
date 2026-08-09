@@ -35,8 +35,10 @@ class SyntheticDataGenerator:
         sensor_temp = np.clip(rng.normal(28, 5, n_samples), 10, 50)
         humidity = np.clip(rng.normal(55, 15, n_samples), 20, 95)
         conveyor_speed = rng.uniform(0.15, 0.40, n_samples)
+        camera_noise = rng.uniform(0.005, 0.05, n_samples)
+        sensor_drift = rng.uniform(0.0, 0.1, n_samples)
         
-        # Noise additions
+        # Noise additions and degradation of confidence
         low_light = ambient_light < 200
         high_temp = sensor_temp > 40
         high_humidity = humidity > 80
@@ -47,6 +49,10 @@ class SyntheticDataGenerator:
             nir_confidence[high_temp] += rng.uniform(-0.08, -0.03, np.sum(high_temp))
         if np.any(high_humidity):
             nir_confidence[high_humidity] += rng.uniform(-0.05, -0.02, np.sum(high_humidity))
+            
+        # Additional degradation from camera noise and sensor drift
+        nir_confidence -= camera_noise * 1.5
+        nir_confidence -= sensor_drift * 0.8
         nir_confidence = np.clip(nir_confidence, 0.0, 1.0)
         
         # Other features
@@ -95,7 +101,9 @@ class SyntheticDataGenerator:
             humidity,
             conveyor_speed,
             polymer_idx,
-            recent_mir
+            recent_mir,
+            camera_noise,
+            sensor_drift
         ])
         y = mir_needed.astype(int)
         

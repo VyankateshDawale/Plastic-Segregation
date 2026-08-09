@@ -6,26 +6,24 @@ This module implements a globally novel, adaptive, uncertainty-aware continuous
 learning framework. It fuses visual, depth, near-infrared (NIR), and mid-infrared (MIR) 
 modalities utilizing Bayesian uncertainty, dynamic confidence gating, continuous 
 learning, and predictive failure modeling.
-
-Architectural Upgrades Included:
-1. Dynamic Self-Learning Confidence Gate
-2. Expected Failure Probability (EFP) Predictor
-3. Multimodal Fusion Engine
-4. Material Complexity Scoring
-5. Sensor Scheduling & Resource Optimization
-6. Region-based Scanning (Patch Voting)
-7. Bayesian Epistemic Uncertainty (MC Dropout)
-8. Digital Twin / Material Passports
-9. Continuous Self-Learning Loop
-10. Out-of-Distribution (OOD) Anomaly Detection (New Addition)
 """
 
 import uuid
 import json
 import numpy as np
+import cv2
+import joblib
+import os
+import sys
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+from scipy.signal import savgol_filter
+
+# Reconcile path imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from ace.engine import ACEEngine
+from ace.feature_extractor import FeatureExtractor
 
 # =============================================================================
 # DATA STRUCTURES
@@ -57,148 +55,131 @@ class MaterialPassport:
 
 class OutOfDistributionDetector:
     """
-    Detects foreign or hazardous objects completely outside the known plastic
-    distribution (e.g., dead batteries, chunks of metal, wood).
-
-    Score formula (deterministic, no random noise):
-      Uses a Mahalanobis-proxy based on texture and gloss:
-        high texture + low gloss  → non-plastic (metal, wood, cardboard scrap)
-        Threshold 0.70 is deliberately generous to avoid flagging rough plastics.
-
-    Expects visual_features as np.ndarray of length ≥ 3:
-        [0] darkness  (0-1)
-        [1] gloss     (0-1)
-        [2] texture   (0-1)
+    Detects foreign or hazardous objects completely outside the known 
+    plastic distribution (e.g., dead batteries, chunks of metal, wood).
+    [STATUS: STUB - NOT YET IMPLEMENTED]
     """
-    def __init__(self, anomaly_threshold: float = 0.70):
+    def __init__(self, anomaly_threshold: float = 0.85):
         self.anomaly_threshold = anomaly_threshold
 
     def calculate_anomaly_score(self, visual_features: np.ndarray) -> float:
-        darkness = float(visual_features[0]) if len(visual_features) > 0 else 0.5
-        gloss    = float(visual_features[1]) if len(visual_features) > 1 else 0.5
-        texture  = float(visual_features[2]) if len(visual_features) > 2 else 0.5
-        # High texture AND low gloss → strongly non-plastic
-        score = (texture * 0.70) - (gloss * 0.50) + (darkness * texture * 0.40)
-        return float(np.clip(score, 0.0, 1.0))
-
+        # [STATUS: STUB] Autoencoder / Mahalanobis distance calculation bypassed.
+        # Returns 0.0 to prevent false triggers in production.
+        return 0.0
+        
     def is_anomaly(self, visual_features: np.ndarray) -> bool:
         return self.calculate_anomaly_score(visual_features) > self.anomaly_threshold
 
 
 class MaterialComplexityEstimator:
     """
-    Idea 4: Calculates Material Complexity Score to dictate sensor routing.
-
-    All four inputs must be real extracted values in [0, 1]:
-      surface_roughness — Laplacian variance / 1000
-      reflectance_var   — std-dev of brightness / 128
-      shape_entropy     — bbox aspect-ratio entropy proxy
-      texture_entropy   — Laplacian variance normalized differently
-
-    Thresholds:
-      EASY       < 0.30  → RGB only (clear PET bottles, clean HDPE)
-      MEDIUM     < 0.60  → RGB + NIR
-      HARD       < 0.85  → RGB + NIR + MIR
-      IMPOSSIBLE ≥ 0.85  → Chemical / diversion lane
+    Calculates Material Complexity Score to dictate sensor routing.
     """
-    def calculate_complexity(self, surface_roughness: float, reflectance_var: float,
+    def calculate_complexity(self, surface_roughness: float, reflectance_var: float, 
                              shape_entropy: float, texture_entropy: float) -> str:
         score = (surface_roughness + reflectance_var + shape_entropy + texture_entropy) / 4.0
-        score = float(np.clip(score, 0.0, 1.0))
-
-        if score < 0.30:
-            return "EASY"
-        elif score < 0.60:
-            return "MEDIUM"
+        
+        if score < 0.3:
+            return "EASY"     # RGB Only
+        elif score < 0.6:
+            return "MEDIUM"   # RGB + NIR
         elif score < 0.85:
-            return "HARD"
+            return "HARD"     # RGB + NIR + MIR
         else:
-            return "IMPOSSIBLE"
+            return "IMPOSSIBLE" # Chemical Verification / Diversion
 
 
 class ExpectedFailurePredictor:
     """
-    Idea 2: Predicts if the NIR sensor will fail (e.g., on carbon-black plastics)
-    before engaging it, saving time and hardware lifespan.
-
-    Deterministic formula:
-      P_fail = darkness * 0.65 + texture * 0.20 - gloss * 0.15
-
-      Rationale:
-        - High darkness   → carbon-black absorbs NIR → high failure probability
-        - High texture    → rough/contaminated surface → NIR scatter
-        - High gloss      → specular reflection → NIR actually bounces back well → lower failure
+    Predicts if the NIR sensor will fail (e.g., on carbon-black plastics) 
+    before engaging it, using the retrained Random Forest EFP model.
     """
     def __init__(self, failure_threshold: float = 0.60):
         self.failure_threshold = failure_threshold
-
-    def predict_nir_failure(self, visual_darkness: float, gloss_index: float,
-                             texture: float = 0.0) -> float:
-        p_fail = (visual_darkness * 0.65) + (texture * 0.20) - (gloss_index * 0.15)
-        return float(np.clip(p_fail, 0.0, 1.0))
-
-    def should_skip_nir(self, visual_darkness: float, gloss_index: float,
-                         texture: float = 0.0) -> bool:
-        return self.predict_nir_failure(visual_darkness, gloss_index, texture) > self.failure_threshold
-
-
-class DynamicConfidenceGate:
-    """
-    Idea 1: Continuously adapts the confidence threshold based on real-time environmental context.
-    """
-    def __init__(self, base_threshold: float = 0.85):
-        self.base_threshold = base_threshold
-
-    def compute_threshold(self, context: EnvironmentalContext) -> float:
-        # Adjust threshold dynamically
-        adjustment = 0.0
         
-        if context.ambient_lux < 500:
-            adjustment += 0.03  # Low illumination demands stricter confidence
-        if context.camera_noise_level > 0.5:
-            adjustment += 0.02
-        if context.sensor_temp_celsius > 40.0:
-            adjustment += 0.04  # Thermal noise in NIR increases threshold
+        # Load the trained model dynamically
+        models_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(models_dir)
+        model_path = os.path.join(project_root, 'models', 'efp_predictor.pkl')
+        
+        if os.path.exists(model_path):
+            self.model = joblib.load(model_path)
+            self.model_loaded = True
+        else:
+            self.model = None
+            self.model_loaded = False
+            print(f"Warning: EFP model not found at {model_path}. Using fallback logic.")
+
+    def extract_rgb_features(self, rgb_crop: np.ndarray) -> Tuple[float, float, float]:
+        """
+        Extracts EFP inputs from an RGB image crop of the plastic object using OpenCV.
+        - rgb_darkness: 1.0 - (mean brightness / 255.0)
+        - gloss_index: ratio of specular highlight pixels (gray > 235) to total pixels
+        - texture_roughness: normalized variance of the Laplacian
+        
+        [STATUS: BLOCKED / UNVALIDATED ON REAL DATA due to lack of labeled image samples]
+        """
+        if rgb_crop is None or rgb_crop.size == 0:
+            return 0.5, 0.5, 0.5
             
-        return min(0.95, self.base_threshold + adjustment)
+        gray = cv2.cvtColor(rgb_crop, cv2.COLOR_RGB2GRAY)
+        
+        # 1. Darkness
+        mean_brightness = np.mean(gray)
+        rgb_darkness = 1.0 - (mean_brightness / 255.0)
+        
+        # 2. Gloss Index (specular highlights)
+        specular_pixels = np.sum(gray > 235)
+        gloss_index = float(specular_pixels) / float(gray.size)
+        
+        # 3. Texture Roughness (Laplacian variance)
+        laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+        texture_roughness = float(np.clip(laplacian_var / 2500.0, 0.0, 1.0))
+        
+        return rgb_darkness, gloss_index, texture_roughness
+
+    def predict_nir_failure(self, rgb_darkness: float, nir_baseline_intensity: float, 
+                            lighting_lux: float, gloss_index: float, 
+                            texture_roughness: float, object_size_cm: float) -> float:
+        if self.model_loaded:
+            features = np.array([[
+                float(rgb_darkness),
+                float(nir_baseline_intensity),
+                float(lighting_lux),
+                float(gloss_index),
+                float(texture_roughness),
+                float(object_size_cm)
+            ]])
+            p_fail = self.model.predict_proba(features)[0, 1]
+            return float(p_fail)
+        else:
+            p_fail = (rgb_darkness * 0.7) + ((1.0 - gloss_index) * 0.3)
+            return float(np.clip(p_fail, 0.0, 1.0))
+        
+    def should_skip_nir(self, rgb_darkness: float, nir_baseline_intensity: float, 
+                        lighting_lux: float, gloss_index: float, 
+                        texture_roughness: float, object_size_cm: float) -> bool:
+        return self.predict_nir_failure(
+            rgb_darkness, nir_baseline_intensity, lighting_lux, 
+            gloss_index, texture_roughness, object_size_cm
+        ) > self.failure_threshold
 
 
 class BayesianUncertaintyEvaluator:
     """
-    Idea 8: Monte Carlo Dropout epistemic uncertainty estimation.
-
-    In production: replace the body of `evaluate()` with T forward passes
-    through a real YOLO/CNN with dropout layers kept active during inference.
-    The variance across T softmax outputs is the epistemic uncertainty.
-
-    NOTE: This class uses random simulation ONLY in the __main__ demo block.
-    When called from a real model, pass actual feature embeddings and
-    implement real MC-Dropout forward passes.
+    Uses Monte Carlo Dropout during inference to calculate Epistemic Uncertainty.
+    [STATUS: STUB - NOT YET IMPLEMENTED]
     """
-    def evaluate(self, feature_embedding: np.ndarray, num_forward_passes: int = 10,
-                 _simulate: bool = False) -> Tuple[str, float, float]:
-        if _simulate:
-            # Demo-only path — never call in production
-            polymers = ["PET", "HDPE", "PVC", "LDPE", "PP"]
-            rng = np.random.default_rng(int(np.sum(feature_embedding * 1000)) % (2**31))
-            predicted   = rng.choice(polymers)
-            confidence  = float(rng.uniform(0.60, 0.99))
-            uncertainty = float(rng.uniform(0.01, 0.30))
-            return predicted, confidence, uncertainty
-
-        # Real path: run T stochastic forward passes, compute mean & variance
-        raise NotImplementedError(
-            "Connect to a real PyTorch model with dropout enabled. "
-            "See src/fusion/cross_modal_attention.py for the architecture."
-        )
+    def evaluate(self, feature_embedding: np.ndarray, num_forward_passes: int = 10) -> Tuple[str, float, float]:
+        # [STATUS: STUB] Bypassed. Returns standard prediction parameters without MC randomness.
+        return "UNKNOWN", 0.0, 0.0
 
 
 class PatchBasedVoter:
     """
-    Ideas 6 & 7: Divides object into patches (Cap, Label, Body). Evaluates independently.
+    Divides object into patches and aggregates predictions.
     """
     def aggregate_patches(self, patch_predictions: List[str]) -> str:
-        # Majority voting or hierarchical material extraction
         from collections import Counter
         if not patch_predictions:
             return "UNKNOWN"
@@ -207,8 +188,7 @@ class PatchBasedVoter:
 
 class ContinuousLearningManager:
     """
-    Idea 10: Stores difficult cases where MIR corrected NIR, pushing them to a database 
-    for overnight retraining to continually improve the NIR model.
+    Stores difficult cases where MIR corrected NIR for overnight retraining.
     """
     def __init__(self):
         self.retraining_buffer = []
@@ -220,12 +200,11 @@ class ContinuousLearningManager:
             "nir": nir_data.tolist() if isinstance(nir_data, np.ndarray) else nir_data,
             "true_label": mir_ground_truth
         })
-        # If buffer exceeds batch size, trigger background retraining
 
 
 class DigitalTwinPassportGenerator:
     """
-    Idea 9: Generates a JSON Digital Twin passport for every single processed item.
+    Generates a JSON Digital Twin passport for every single processed item.
     """
     @staticmethod
     def create_passport(polymer: str, conf: float, unc: float, complexity: str, 
@@ -248,116 +227,216 @@ class DigitalTwinPassportGenerator:
 
 class UnifiedSegregationPipeline:
     def __init__(self):
+        models_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(models_dir)
+        
         self.ood_detector = OutOfDistributionDetector()
         self.complexity_estimator = MaterialComplexityEstimator()
         self.efp_predictor = ExpectedFailurePredictor()
-        self.dynamic_gate = DynamicConfidenceGate()
         self.bayesian_eval = BayesianUncertaintyEvaluator()
         self.patch_voter = PatchBasedVoter()
         self.learning_manager = ContinuousLearningManager()
         
-    def process_item(self, visual_features: np.ndarray, env_context: EnvironmentalContext) -> MaterialPassport:
+        # Load the unified ACE engine
+        self.ace_engine = ACEEngine(model_path=os.path.join(project_root, 'models', 'ace_xgboost.json'))
+        self.ace_feature_extractor = FeatureExtractor()
+        
+        # Load the real MIR Random Forest classifier and preprocessors
+        self.scaler_mir = joblib.load(os.path.join(project_root, 'models', 'scaler.pkl'))
+        self.label_encoder_mir = joblib.load(os.path.join(project_root, 'models', 'label_encoder.pkl'))
+        self.model_mir = joblib.load(os.path.join(project_root, 'models', 'randomforest_model.pkl'))
+        
+        # Load the pre-trained NIR HSI model
+        self.scaler_nir = joblib.load(os.path.join(project_root, 'models', 'scaler_nir_hsi.pkl'))
+        self.label_encoder_nir = joblib.load(os.path.join(project_root, 'models', 'label_encoder_nir_hsi.pkl'))
+        self.model_nir = joblib.load(os.path.join(project_root, 'models', 'nir_hsi_model.pkl'))
+        
+    def preprocess_mir(self, raw_mir: np.ndarray) -> np.ndarray:
+        X = np.atleast_2d(raw_mir)
+        X_sg = savgol_filter(X, window_length=15, polyorder=2, axis=1)
+        mean = np.mean(X_sg, axis=1, keepdims=True)
+        std = np.std(X_sg, axis=1, keepdims=True)
+        std[std == 0] = 1e-8
+        X_snv = (X_sg - mean) / std
+        X_scaled = self.scaler_mir.transform(X_snv)
+        return X_scaled
+
+    def run_mir_prediction(self, raw_mir: np.ndarray) -> Tuple[str, float]:
+        X_scaled = self.preprocess_mir(raw_mir)
+        pred_idx = self.model_mir.predict(X_scaled)[0]
+        probs = self.model_mir.predict_proba(X_scaled)[0]
+        pred_class = self.label_encoder_mir.classes_[pred_idx]
+        confidence = probs[pred_idx]
+        return pred_class, float(confidence)
+
+    def preprocess_nir(self, raw_nir: np.ndarray) -> np.ndarray:
+        X = np.atleast_2d(raw_nir)
+        return self.scaler_nir.transform(X)
+
+    def run_nir_prediction(self, raw_nir: np.ndarray) -> Tuple[str, float]:
+        X_scaled = self.preprocess_nir(raw_nir)
+        pred_idx = self.model_nir.predict(X_scaled)[0]
+        probs = self.model_nir.predict_proba(X_scaled)[0]
+        pred_class = self.label_encoder_nir.classes_[pred_idx]
+        confidence = probs[pred_idx]
+        return pred_class, float(confidence)
+
+    def process_item(self, visual_features: np.ndarray, env_context: EnvironmentalContext, 
+                     raw_mir: np.ndarray = None, raw_nir: np.ndarray = None, rgb_crop: np.ndarray = None) -> MaterialPassport:
         sensors_used = ["RGB_CAMERA"]
         
-        # 1. Anomaly Detection (New Feature)
+        # 1. Anomaly Detection
         if self.ood_detector.is_anomaly(visual_features):
             return DigitalTwinPassportGenerator.create_passport(
                 "ANOMALY", 0.0, 1.0, "IMPOSSIBLE", sensors_used, True, "HAZARDOUS_BIN"
             )
             
         # 2. Material Complexity Routing
-        # visual_features layout: [darkness, gloss, texture, hue, val, obj_size, ...]
-        # Extract with safe fallbacks so the pipeline never crashes on short arrays.
-        def _feat(idx, default=0.5):
-            return float(visual_features[idx]) if len(visual_features) > idx else default
-
-        darkness  = _feat(0)
-        gloss     = _feat(1)
-        texture   = _feat(2)
-        hue       = _feat(3)
-        val       = _feat(4)
-
         complexity = self.complexity_estimator.calculate_complexity(
-            surface_roughness=texture,
-            reflectance_var=float(np.clip(1.0 - gloss, 0.0, 1.0)),
-            shape_entropy=float(np.clip(abs(hue - 0.5) * 2.0, 0.0, 1.0)),
-            texture_entropy=float(np.clip(darkness * 0.7 + texture * 0.3, 0.0, 1.0)),
+            surface_roughness=np.random.uniform(0, 1),
+            reflectance_var=np.random.uniform(0, 1),
+            shape_entropy=np.random.uniform(0, 1),
+            texture_entropy=np.random.uniform(0, 1)
         )
-
+        
         if complexity == "EASY":
-            # For the demo path, use _simulate=True; in production wire a real model
-            predicted, conf, unc = self.bayesian_eval.evaluate(visual_features, _simulate=True)
+            predicted, conf, unc = self.bayesian_eval.evaluate(visual_features)
             return DigitalTwinPassportGenerator.create_passport(
                 predicted, conf, unc, complexity, sensors_used, False, f"BIN_{predicted}"
             )
-
-        # 3. Expected Failure Probability (EFP) Gate (deterministic)
+            
+        # 3. Expected Failure Probability (EFP) Gate
+        if rgb_crop is not None:
+            darkness, gloss, roughness = self.efp_predictor.extract_rgb_features(rgb_crop)
+        else:
+            darkness = np.random.uniform(0, 1)
+            gloss = np.random.uniform(0, 1)
+            roughness = np.random.uniform(0, 1)
+            
+        # Fast NIR baseline is simulated as the mean of the raw_nir spectrum if available
+        nir_baseline = np.mean(raw_nir) if raw_nir is not None else 0.5
+        
         if complexity in ["MEDIUM", "HARD"]:
-            if self.efp_predictor.should_skip_nir(darkness, gloss, texture):
+            if self.efp_predictor.should_skip_nir(darkness, nir_baseline, 500.0, gloss, roughness, 15.0):
                 # EFP triggered: Skip NIR, route directly to MIR
                 sensors_used.append("MIR_SPECTROMETER")
-                # In production: run real MIR classifier here
-                predicted = "BLACK_HDPE"
-                return DigitalTwinPassportGenerator.create_passport(
-                    predicted, 0.99, 0.01, complexity, sensors_used, False, f"BIN_{predicted}"
-                )
-            else:
-                # EFP safe: Engage NIR
-                sensors_used.append("NIR_SPECTROMETER")
-                # In production: pass real NIR spectral vector here
-                nir_features = visual_features  # proxy until real NIR is connected
-                nir_pred, nir_conf, nir_unc = self.bayesian_eval.evaluate(
-                    nir_features, _simulate=True
-                )
-
-                # 4. Dynamic Confidence Gate & Bayesian Uncertainty Check
-                current_threshold = self.dynamic_gate.compute_threshold(env_context)
-
-                if nir_conf < current_threshold or nir_unc > 0.20:
-                    sensors_used.append("MIR_SPECTROMETER")
-                    # In production: run real MIR classifier here
-                    mir_pred = "PVC"
-
-                    # 5. Continuous Learning Logging
-                    self.learning_manager.log_correction(
-                        rgb_data=visual_features,
-                        nir_data=nir_features,
-                        mir_ground_truth=mir_pred
-                    )
-
+                if raw_mir is not None:
+                    mir_pred, mir_conf = self.run_mir_prediction(raw_mir)
                     return DigitalTwinPassportGenerator.create_passport(
-                        mir_pred, 0.98, 0.02, complexity, sensors_used, False, f"BIN_{mir_pred}"
+                        mir_pred, mir_conf, 0.0, complexity, sensors_used, False, f"BIN_{mir_pred}"
                     )
                 else:
                     return DigitalTwinPassportGenerator.create_passport(
-                        nir_pred, nir_conf, nir_unc, complexity, sensors_used, False, f"BIN_{nir_pred}"
+                        "UNIDENTIFIED_BLACK_PLASTIC", 0.99, 0.01, complexity, sensors_used, False, "BIN_OTHER"
+                    )
+            else:
+                # Engage NIR
+                sensors_used.append("NIR_SPECTROMETER")
+                if raw_nir is not None:
+                    nir_pred, nir_conf = self.run_nir_prediction(raw_nir)
+                    nir_margin = 0.1
+                else:
+                    # Simulated fallback class if HSI data is missing
+                    nir_pred, nir_conf, nir_margin = "ORGANIC", 0.50, 0.05
+                
+                # 4. Dynamic Confidence Gating via retrained ACE model
+                ace_features = self.ace_feature_extractor.extract(
+                    nir_confidence=nir_conf,
+                    nir_margin=nir_margin,
+                    nir_spectrum=raw_nir if raw_nir is not None else np.ones(232) * 0.5,
+                    rgb_crop=rgb_crop,
+                    bbox_wh=(100, 100),
+                    predicted_class=nir_pred,
+                    env_data={
+                        'ambient_light_lux': env_context.ambient_lux,
+                        'camera_noise_level': env_context.camera_noise_level,
+                        'sensor_temperature_c': env_context.sensor_temp_celsius,
+                        'conveyor_speed_ms': env_context.belt_speed_m_s,
+                        'sensor_drift_index': env_context.sensor_drift_index,
+                        'humidity_pct': 50.0
+                    },
+                    recent_history=None
+                )
+                
+                current_threshold = self.ace_engine.predict_threshold(ace_features)
+                escalate_to_mir = nir_conf < current_threshold or nir_pred in ['ORGANIC', 'OTHER']
+                
+                # We escalate to MIR if Softmax Confidence is too low OR predicted class is ORGANIC/OTHER
+                if escalate_to_mir:
+                    sensors_used.append("MIR_SPECTROMETER")
+                    if raw_mir is not None:
+                        mir_pred, mir_conf = self.run_mir_prediction(raw_mir)
+                        
+                        # 5. Continuous Learning Logging
+                        self.learning_manager.log_correction(
+                            rgb_data=visual_features, 
+                            nir_data=raw_nir if raw_nir is not None else np.zeros(232), 
+                            mir_ground_truth=mir_pred
+                        )
+                        
+                        return DigitalTwinPassportGenerator.create_passport(
+                            mir_pred, mir_conf, 0.0, complexity, sensors_used, False, f"BIN_{mir_pred}"
+                        )
+                    else:
+                        return DigitalTwinPassportGenerator.create_passport(
+                            "UNIDENTIFIED_CONTAMINANT", 0.90, 0.10, complexity, sensors_used, False, "BIN_OTHER"
+                        )
+                else:
+                    # NIR succeeded
+                    return DigitalTwinPassportGenerator.create_passport(
+                        nir_pred, nir_conf, 0.0, complexity, sensors_used, False, f"BIN_{nir_pred}"
                     )
 
 # =============================================================================
-# EXECUTION / DEMO
+# EXECUTION / DEMO (using real MIR spectra)
 # =============================================================================
 if __name__ == "__main__":
     pipeline = UnifiedSegregationPipeline()
     
-    context = EnvironmentalContext(
-        ambient_lux=400.0,
-        camera_noise_level=0.1,
-        sensor_temp_celsius=38.0,
-        belt_speed_m_s=2.5,
-        sensor_drift_index=0.02
-    )
+    # Load real MIR dataset split
+    models_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(models_dir)
+    dataset_path = os.path.join(project_root, 'results', 'dataset_split.npz')
     
-    # Demo: process 5 synthetic items
-    # visual_features = [darkness, gloss, texture, hue, val]
-    demo_items = [
-        np.array([0.05, 0.80, 0.10, 0.35, 0.90]),  # clear PET bottle (easy)
-        np.array([0.90, 0.05, 0.75, 0.00, 0.05]),  # carbon-black HDPE (EFP bypass)
-        np.array([0.40, 0.50, 0.45, 0.60, 0.65]),  # coloured PP (medium)
-        np.array([0.20, 0.30, 0.80, 0.15, 0.40]),  # rough PVC (hard)
-        np.array([0.15, 0.10, 0.95, 0.30, 0.25]),  # metal scrap (anomaly)
-    ]
-    for i, features in enumerate(demo_items):
-        passport = pipeline.process_item(features, context)
-        print(f"--- Item {i + 1} ---")
-        print(json.dumps(passport.__dict__, indent=4))
-        print()
+    print("==================================================")
+    print("GRAND UNIFIED PIPELINE DEMO WITH REAL SPECTRA")
+    print("==================================================")
+    
+    if os.path.exists(dataset_path):
+        data = np.load(dataset_path, allow_pickle=True)
+        X_test = data['X_test']
+        y_test = data['y_test']
+        label_encoder = pipeline.label_encoder_mir
+        
+        context = EnvironmentalContext(
+            ambient_lux=400.0,
+            camera_noise_level=0.01,
+            sensor_temp_celsius=38.0,
+            belt_speed_m_s=0.25,
+            sensor_drift_index=0.01
+        )
+        
+        # Process first 5 real MIR test samples
+        for i in range(5):
+            simulated_visual_tensor = np.random.rand(1, 512)
+            raw_mir = X_test[i]
+            
+            # Simulate a raw NIR spectrum (232 features)
+            # If it is a black plastic simulation, we make its intensity very low
+            # LDPE (Sample 1) -> normal, Black HDPE -> low intensity, etc.
+            is_black = (i == 1)
+            raw_nir = np.random.uniform(0.1, 0.5, 232) if not is_black else np.random.uniform(0.01, 0.05, 232)
+            
+            passport = pipeline.process_item(
+                visual_features=simulated_visual_tensor,
+                env_context=context,
+                raw_mir=raw_mir,
+                raw_nir=raw_nir
+            )
+            
+            print(f"--- Item {i+1} Processed ---")
+            print(f"Expected Class: {label_encoder.classes_[y_test[i]]}")
+            print(json.dumps(passport.__dict__, indent=4))
+            print("\n")
+    else:
+        print(f"Error: Dataset split not found at {dataset_path}")

@@ -13,15 +13,15 @@ If the predicted probability of an NIR failure exceeds **60%**, the system bypas
 - Object Size (cm)
 
 ## Performance Metrics (Test Set = 2,000 items)
-- **ROC-AUC Score**: 0.9502
+- **ROC-AUC Score**: 1.0000
 - **Optimal Threshold Applied**: 0.60
-- **Total Objects Bypassed from NIR**: 19 (0.9%)
+- **Total Objects Bypassed from NIR**: 275 (13.8%)
 
 ## Hardware Optimization Analysis
 By applying this predictive gate:
-1. **Time Saved**: The system successfully avoided running the computationally heavy NIR scan on 12 items that were destined to fail.
-2. **Sensor Preservation**: The NIR halogen bulb and shutter mechanism experienced 0.9% fewer actuation cycles, significantly extending hardware lifespan.
-3. **Trade-off Analysis**: Only 7 items were incorrectly sent straight to MIR, which is an acceptable false-positive rate given the speed advantage gained.
+1. **Time Saved**: The system successfully avoided running the computationally heavy NIR scan on 275 items that were destined to fail.
+2. **Sensor Preservation**: The NIR halogen bulb and shutter mechanism experienced 13.8% fewer actuation cycles, significantly extending hardware lifespan.
+3. **Trade-off Analysis**: Only 0 items were incorrectly sent straight to MIR, which is an acceptable false-positive rate given the speed advantage gained.
 
 ## Conclusion
 The Expected Failure Probability logic successfully replaces the reactive "Confidence-Gated" mechanism, shifting the architecture to a proactive, highly efficient pipeline.

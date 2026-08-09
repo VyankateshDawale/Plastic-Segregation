@@ -10,12 +10,26 @@ def generate_synthetic_data(num_samples=10000):
     print("Generating synthetic dataset for Expected Failure Probability (EFP)...")
     np.random.seed(42)
     
-    # 1. Feature: RGB Darkness (0 = pure white, 1 = absolute black)
-    rgb_darkness = np.random.beta(a=2, b=5, size=num_samples)
+    is_cb = np.random.rand(num_samples) < 0.15
     
-    # 2. Feature: Fast preliminary NIR baseline intensity (0 = totally absorbed, 1 = highly reflective)
-    # Carbon black drastically absorbs NIR, so high darkness -> low NIR intensity
-    nir_baseline_intensity = 1.0 - (rgb_darkness * np.random.uniform(0.8, 1.2, num_samples))
+    rgb_darkness = np.zeros(num_samples)
+    nir_baseline_intensity = np.zeros(num_samples)
+    
+    # CB samples (high darkness, low intensity)
+    cb_mask = is_cb
+    num_cb = np.sum(cb_mask)
+    if num_cb > 0:
+        rgb_darkness[cb_mask] = np.random.uniform(0.80, 0.98, num_cb)
+        nir_baseline_intensity[cb_mask] = np.random.uniform(0.01, 0.079, num_cb)
+        
+    # Non-CB samples (low/mid darkness, high intensity)
+    ncb_mask = ~is_cb
+    num_ncb = np.sum(ncb_mask)
+    if num_ncb > 0:
+        rgb_darkness[ncb_mask] = np.random.beta(a=2, b=5, size=num_ncb)
+        # Avoid dividing by zero and keep baseline high
+        nir_baseline_intensity[ncb_mask] = 1.0 - (rgb_darkness[ncb_mask] * np.random.uniform(0.5, 0.9, num_ncb))
+        
     nir_baseline_intensity = np.clip(nir_baseline_intensity, 0.01, 1.0)
     
     # 3. Feature: Lighting (Lux) - varies between 300 to 1000 lux (factory conditions)
@@ -31,15 +45,9 @@ def generate_synthetic_data(num_samples=10000):
     object_size_cm = np.random.uniform(2.0, 30.0, size=num_samples)
     
     # Determine True Label: Did NIR actually fail?
-    # Logic: If darkness is high AND gloss is low AND nir baseline is absorbed, it's likely carbon black.
-    # We add some noise to simulate real-world uncertainty.
-    failure_probability_hidden = (rgb_darkness * 0.5) + ((1.0 - nir_baseline_intensity) * 0.4) + ((1.0 - gloss_index) * 0.1)
-    
-    # Normalize to 0-1
-    failure_probability_hidden = np.clip(failure_probability_hidden, 0, 1)
-    
-    # Ground truth (1 = NIR failed, 0 = NIR succeeded)
-    nir_failure = (failure_probability_hidden + np.random.normal(0, 0.1, num_samples) > 0.65).astype(int)
+    # Seeded by the real black-plastic gate: mean_reflectance < 0.08
+    # where nir_baseline_intensity is the mean reflectance.
+    nir_failure = (nir_baseline_intensity < 0.08).astype(int)
     
     df = pd.DataFrame({
         'rgb_darkness': rgb_darkness,

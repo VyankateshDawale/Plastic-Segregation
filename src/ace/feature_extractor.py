@@ -36,6 +36,8 @@ class FeatureExtractor:
         sensor_temperature_c = env_data.get('sensor_temperature_c', 25.0)
         humidity_pct = env_data.get('humidity_pct', 50.0)
         conveyor_speed_ms = env_data.get('conveyor_speed_ms', 0.25)
+        camera_noise_level = env_data.get('camera_noise_level', 0.01)
+        sensor_drift_index = env_data.get('sensor_drift_index', 0.0)
 
         # Classification
         predicted_class_encoded = self.class_to_idx.get(predicted_class, -1)
@@ -56,7 +58,9 @@ class FeatureExtractor:
             float(humidity_pct),
             float(conveyor_speed_ms),
             float(predicted_class_encoded),
-            float(recent_mir_rate)
+            float(recent_mir_rate),
+            float(camera_noise_level),
+            float(sensor_drift_index)
         ]
         return np.array(features, dtype=np.float32)
 
@@ -76,5 +80,7 @@ class FeatureExtractor:
             'humidity_pct',
             'conveyor_speed_ms',
             'predicted_class_encoded',
-            'recent_mir_rate'
+            'recent_mir_rate',
+            'camera_noise_level',
+            'sensor_drift_index'
         ]

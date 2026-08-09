@@ -62,12 +62,12 @@ def main():
     print(f"  FEATURE IMPORTANCE RANKING")
     print(f"{'='*50}")
     for rank, (feat, imp) in enumerate(sorted_imp, 1):
-        bar = '█' * int(imp * 100)
+        bar = '=' * int(imp * 100)
         print(f"  {rank:2d}. {feat:28s} {imp:.4f}  {bar}")
 
     # 6. Save model
     engine.save(args.output)
-    print(f"\n✅ Model saved to: {args.output}")
+    print(f"\n[OK] Model saved to: {args.output}")
 
     # 7. Feature importance plot
     plt.style.use('dark_background')
@@ -85,7 +85,7 @@ def main():
     plt.tight_layout()
     plt.savefig('outputs/ace/feature_importance.png', dpi=300, bbox_inches='tight')
     plt.close()
-    print("✅ Feature importance plot saved to: outputs/ace/feature_importance.png")
+    print("[OK] Feature importance plot saved to: outputs/ace/feature_importance.png")
 
     # Quick demo: show adaptive thresholds for a few samples
     print(f"\n{'='*50}")
@@ -95,7 +95,7 @@ def main():
         threshold = engine.predict_threshold(X[i])
         nir_conf = X[i, 0]
         escalate, thresh = engine.should_escalate(nir_conf, X[i])
-        label = "→ ESCALATE to MIR" if escalate else "→ Accept NIR"
+        label = "-> ESCALATE to MIR" if escalate else "-> Accept NIR"
         print(f"  Sample {i:5d}: NIR conf={nir_conf:.3f}, ACE threshold={thresh:.3f} {label}")
 
 if __name__ == "__main__":

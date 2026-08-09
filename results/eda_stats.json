@@ -1,0 +1,26 @@
+{
+    "num_samples": 3000,
+    "num_features": 3736,
+    "total_missing": 0,
+    "duplicate_samples": 351,
+    "classes": [
+        "PET",
+        "HDPE",
+        "PVC",
+        "LDPE",
+        "PP",
+        "PS"
+    ],
+    "class_counts": {
+        "PET": 500,
+        "HDPE": 500,
+        "PVC": 500,
+        "LDPE": 500,
+        "PP": 500,
+        "PS": 500
+    },
+    "wavenumber_range": [
+        399.1927,
+        4000.6045
+    ]
+}
