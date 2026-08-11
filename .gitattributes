@@ -1,0 +1,2 @@
+runs/*/weights/last.pt filter=lfs diff=lfs merge=lfs -text
+runs/*/weights/best.pt filter=lfs diff=lfs merge=lfs -text

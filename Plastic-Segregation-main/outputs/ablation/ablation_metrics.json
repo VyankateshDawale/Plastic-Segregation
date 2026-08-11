@@ -1,0 +1,39 @@
+{
+  "detector": {
+    "mAP50": 0.5317862125891316,
+    "mAP50-95": 0.3179984756999159,
+    "precision": 0.608100127633329,
+    "recall": 0.48348051477523485
+  },
+  "classifier": {
+    "top1": 0.9572649598121643,
+    "top5": 0.9967439770698547
+  },
+  "vision_composite_overall": 0.5090603074227982,
+  "detector_conf_sweep": [
+    {
+      "conf_threshold": 0.1,
+      "precision": 0.6081,
+      "recall": 0.4835,
+      "mAP50": 0.501
+    },
+    {
+      "conf_threshold": 0.2,
+      "precision": 0.6081,
+      "recall": 0.4835,
+      "mAP50": 0.472
+    },
+    {
+      "conf_threshold": 0.3,
+      "precision": 0.5852,
+      "recall": 0.5048,
+      "mAP50": 0.4427
+    },
+    {
+      "conf_threshold": 0.5,
+      "precision": 0.6958,
+      "recall": 0.4127,
+      "mAP50": 0.3722
+    }
+  ]
+}

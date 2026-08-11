@@ -1,0 +1,8 @@
+Metric,Fixed_Threshold,ACE_Adaptive,Delta
+sorting_accuracy,1.000000,1.000000,0.000000
+mir_activation_rate,0.692200,0.376200,-0.316000
+false_escalations,0.501000,0.185000,-0.316000
+missed_escalations,0.000000,0.000000,0.000000
+energy_proxy,10383.000000,5643.000000,-4740.000000
+throughput_ipm,16.306859,17.038517,0.731658
+cost_per_item,2.076600,1.128600,-0.948000

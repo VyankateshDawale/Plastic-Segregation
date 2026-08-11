@@ -1,0 +1,20 @@
+{
+    "RandomForest": {
+        "test_accuracy": 0.9135802469135802,
+        "test_precision": 0.9136820482279188,
+        "test_recall": 0.9135802469135802,
+        "test_f1": 0.9121385258691493
+    },
+    "SVM": {
+        "test_accuracy": 0.9711934156378601,
+        "test_precision": 0.971297927278783,
+        "test_recall": 0.9711934156378601,
+        "test_f1": 0.9710684134690846
+    },
+    "XGBoost": {
+        "test_accuracy": 0.934156378600823,
+        "test_precision": 0.9350140121066423,
+        "test_recall": 0.934156378600823,
+        "test_f1": 0.933877528604423
+    }
+}
