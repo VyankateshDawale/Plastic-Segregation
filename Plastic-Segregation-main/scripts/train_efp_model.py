@@ -31,7 +31,7 @@ def generate_synthetic_data(num_samples: int = 10000) -> pd.DataFrame:
     
     Features:
         rgb_darkness           – proxy for carbon-black presence (0=white, 1=black)
-        nir_baseline_intensity – fast pre-scan mean reflectance
+        
         lighting_lux           – ambient lux in factory
         gloss_index            – specular highlight ratio (0=matte, 1=glossy)
         texture_roughness      – Laplacian variance proxy (0=smooth, 1=rough)
@@ -48,16 +48,7 @@ def generate_synthetic_data(num_samples: int = 10000) -> pd.DataFrame:
     # ---- features ---------------------------------------------------------
     rgb_darkness = np.random.beta(a=2, b=5, size=num_samples)
 
-    # nir_baseline_intensity correlated with darkness but with noise
-    nir_baseline_intensity = np.clip(
-        1.0 - (rgb_darkness * np.random.uniform(0.7, 1.1, num_samples))
-        + np.random.normal(0, 0.05, num_samples),
-        0.01, 1.0
-    )
-    # Inject 15% explicit "black-plastic" samples with very low reflectance
-    cb_mask = np.random.rand(num_samples) < 0.15
-    rgb_darkness[cb_mask]           = np.random.uniform(0.80, 0.98, cb_mask.sum())
-    nir_baseline_intensity[cb_mask] = np.random.uniform(0.01, 0.12, cb_mask.sum())
+    
 
     lighting_lux      = np.random.uniform(300, 1000, size=num_samples)
     gloss_index       = np.random.uniform(0, 1,    size=num_samples)
@@ -72,14 +63,14 @@ def generate_synthetic_data(num_samples: int = 10000) -> pd.DataFrame:
         0.50 * rgb_darkness
         + 0.20 * (1.0 - gloss_index)
         + 0.15 * texture_roughness
-        + 0.15 * (1.0 - nir_baseline_intensity)   # corroborating signal, not defining it
+        
         + np.random.normal(0, 0.10, num_samples)  # real-world noise
     )
     nir_failure = (p_fail > 0.65).astype(int)
 
     df = pd.DataFrame({
         'rgb_darkness':           rgb_darkness,
-        'nir_baseline_intensity': nir_baseline_intensity,
+        
         'lighting_lux':           lighting_lux,
         'gloss_index':            gloss_index,
         'texture_roughness':      texture_roughness,
@@ -152,7 +143,7 @@ inputs:
 p_fail = 0.50 * rgb_darkness
        + 0.20 * (1 - gloss_index)
        + 0.15 * texture_roughness
-       + 0.15 * (1 - nir_baseline_intensity)   # corroborating, not defining
+       
        + noise(mu=0, sigma=0.10)
 nir_failure = 1 if p_fail > 0.65 else 0
 ```
@@ -166,7 +157,7 @@ where the label was simply `nir_baseline_intensity < 0.08`.
 | Feature | Description |
 |---------|-------------|
 | `rgb_darkness` | 1 - mean(gray channel) / 255, proxy for carbon-black presence |
-| `nir_baseline_intensity` | Fast pre-scan mean reflectance |
+
 | `lighting_lux` | Ambient illuminance (300–1000 lux) |
 | `gloss_index` | Fraction of specular highlight pixels |
 | `texture_roughness` | Normalised Laplacian variance |

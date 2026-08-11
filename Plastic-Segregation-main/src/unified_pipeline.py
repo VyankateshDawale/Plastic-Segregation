@@ -138,13 +138,12 @@ class ExpectedFailurePredictor:
         
         return rgb_darkness, gloss_index, texture_roughness
 
-    def predict_nir_failure(self, rgb_darkness: float, nir_baseline_intensity: float, 
+    def predict_nir_failure(self, rgb_darkness: float, 
                             lighting_lux: float, gloss_index: float, 
                             texture_roughness: float, object_size_cm: float) -> float:
         if self.model_loaded:
             features = np.array([[
                 float(rgb_darkness),
-                float(nir_baseline_intensity),
                 float(lighting_lux),
                 float(gloss_index),
                 float(texture_roughness),
@@ -156,11 +155,11 @@ class ExpectedFailurePredictor:
             p_fail = (rgb_darkness * 0.7) + ((1.0 - gloss_index) * 0.3)
             return float(np.clip(p_fail, 0.0, 1.0))
         
-    def should_skip_nir(self, rgb_darkness: float, nir_baseline_intensity: float, 
+    def should_skip_nir(self, rgb_darkness: float, 
                         lighting_lux: float, gloss_index: float, 
                         texture_roughness: float, object_size_cm: float) -> bool:
         return self.predict_nir_failure(
-            rgb_darkness, nir_baseline_intensity, lighting_lux, 
+            rgb_darkness, lighting_lux, 
             gloss_index, texture_roughness, object_size_cm
         ) > self.failure_threshold
 
@@ -340,7 +339,7 @@ class UnifiedSegregationPipeline:
         nir_baseline = np.mean(raw_nir) if raw_nir is not None else 0.5
         
         if complexity in ["MEDIUM", "HARD"]:
-            if self.efp_predictor.should_skip_nir(darkness, nir_baseline, 500.0, gloss, roughness, 15.0):
+            if self.efp_predictor.should_skip_nir(darkness, 500.0, gloss, roughness, 15.0):
                 # EFP triggered: Skip NIR, route directly to MIR
                 sensors_used.append("MIR_SPECTROMETER")
                 if raw_mir is not None:
@@ -355,6 +354,21 @@ class UnifiedSegregationPipeline:
             else:
                 # Engage NIR
                 sensors_used.append("NIR_SPECTROMETER")
+
+                # 4. Early-exit Reflectance Check during NIR acquisition
+                nir_baseline = np.mean(raw_nir) if raw_nir is not None else 0.5
+                if nir_baseline < 0.08:
+                    sensors_used.append("MIR_SPECTROMETER")
+                    if raw_mir is not None:
+                        mir_pred, mir_conf = self.run_mir_prediction(raw_mir)
+                        return DigitalTwinPassportGenerator.create_passport(
+                            mir_pred, mir_conf, 0.0, complexity, sensors_used, False, f"BIN_{mir_pred}"
+                        )
+                    else:
+                        return DigitalTwinPassportGenerator.create_passport(
+                            "UNIDENTIFIED_BLACK_PLASTIC", 0.99, 0.01, complexity, sensors_used, False, "BIN_OTHER"
+                        )
+
                 if raw_nir is not None:
                     nir_pred, nir_conf = self.run_nir_prediction(raw_nir)
                     nir_margin = 0.1

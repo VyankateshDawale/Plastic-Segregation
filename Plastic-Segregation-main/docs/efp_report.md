@@ -13,7 +13,7 @@ inputs:
 p_fail = 0.50 * rgb_darkness
        + 0.20 * (1 - gloss_index)
        + 0.15 * texture_roughness
-       + 0.15 * (1 - nir_baseline_intensity)   # corroborating, not defining
+       
        + noise(mu=0, sigma=0.10)
 nir_failure = 1 if p_fail > 0.65 else 0
 ```
@@ -27,7 +27,7 @@ where the label was simply `nir_baseline_intensity < 0.08`.
 | Feature | Description |
 |---------|-------------|
 | `rgb_darkness` | 1 - mean(gray channel) / 255, proxy for carbon-black presence |
-| `nir_baseline_intensity` | Fast pre-scan mean reflectance |
+
 | `lighting_lux` | Ambient illuminance (300–1000 lux) |
 | `gloss_index` | Fraction of specular highlight pixels |
 | `texture_roughness` | Normalised Laplacian variance |
@@ -35,11 +35,11 @@ where the label was simply `nir_baseline_intensity < 0.08`.
 
 ## Performance Metrics (Synthetic Test Set — 2,000 items)
 - **Data source**: SYNTHETIC (non-tautological)
-- **ROC-AUC Score**: 0.9779
+- **ROC-AUC Score**: 0.9449
 - **Decision Threshold Applied**: 0.60
-- **NIR Bypassed**: 240 items (12.0%)
-- **Correctly skipped NIR (TP)**: 208
-- **Incorrectly skipped NIR (FP)**: 32
+- **NIR Bypassed**: 0 items (0.0%)
+- **Correctly skipped NIR (TP)**: 0
+- **Incorrectly skipped NIR (FP)**: 0
 
 ## Status in PAPER_ALIGNMENT.md
 This row is marked **Partial — synthetic labels only, not yet validated on

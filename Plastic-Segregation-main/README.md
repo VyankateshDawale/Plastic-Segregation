@@ -64,8 +64,8 @@ graph TD
 
 ### Stage Breakdown
 1. **Stage 1 — Vision Detection:** YOLOv11s detects waste objects on the conveyor belt and classifies them into 6 macro-classes.
-2. **Expected Failure Predictor (EFP):** Ingests visual properties (e.g. darkness, gloss) and fast preliminary NIR mean intensity. If it predicts an NIR failure (e.g., carbon-black absorbing plastics, where mean reflectance < 0.08), it bypasses the NIR stage entirely.
-3. **Stage 2 — NIR Spectral Sensing:** Employs an SVM classifier on 232-band NIR spectra for primary polymer typing.
+2. **Expected Failure Predictor (EFP):** Ingests exclusively visual and environmental properties (e.g. darkness, gloss, texture roughness). If it predicts an NIR failure based on these optical properties, it proactively bypasses the NIR stage entirely (note: no spectral data is used by the EFP).
+3. **Stage 2 — NIR Spectral Sensing:** During acquisition, if the mean NIR reflectance is < 0.08, the item is immediately routed to MIR as an early-exit bypass. Otherwise, it captures a 232-band spectrum and employs an SVM classifier for primary polymer typing.
 4. **Stage 3 — Adaptive Confidence Engine (ACE):** An XGBoost model dynamically determines if the costly MIR sensor is required based on a 17-feature context vector.
 5. **Stage 4 — MIR Fallback:** High-precision FTIR spectra analyzed by a Random Forest model, specifically targeted at black or heavily contaminated plastics (100% accuracy on pure samples).
 
