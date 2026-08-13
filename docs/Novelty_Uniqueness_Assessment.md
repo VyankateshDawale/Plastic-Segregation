@@ -19,7 +19,7 @@
 ## 2. What Is Novel
 
 - **Adaptive, per-item threshold prediction** (via XGBoost) replacing a static confidence cutoff for triggering a secondary (MIR) sensor — this is the crux of the claimed innovation.
-- **17-feature context vector** spanning vision, spectral, environmental, and system-state signals (including `recent_mir_rate`, a moving average of recent escalation decisions) — this specific feature composition is not something the search surfaced elsewhere.
+- **15-feature context vector** spanning vision, spectral, environmental, and system-state signals (including `recent_mir_rate`, a moving average of recent escalation decisions) — this specific feature composition is not something the search surfaced elsewhere.
 - **Closed feedback loop**: SQLite-logged predictions continuously refine the ACE model — a self-improving cascade, rather than a one-time-trained gate.
 - **Quantified technical effect**: 31.6% reduction in MIR activations, 45.6% energy savings, 98.4% accuracy — concrete, benchmarked results strengthen the case that this produces a real technical effect (important for subject-matter eligibility, not just novelty).
 
